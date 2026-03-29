@@ -57,6 +57,34 @@ def detect_scenes(
     scene_manager.detect_scenes(video)
     scene_list = scene_manager.get_scene_list()
 
+    # If no cuts detected, treat the whole video as one scene
+    if not scene_list:
+        duration = video.duration.get_seconds()
+        if duration >= min_scene_length_sec:
+            logger.info("  No cuts detected, treating entire video as one scene (%.1fs)", duration)
+            scenes = [{
+                "scene_index": 0,
+                "start_sec": 0.0,
+                "end_sec": round(duration, 3),
+                "duration_sec": round(duration, 3),
+            }]
+            # Still apply max_scene_length splitting
+            if duration > max_scene_length_sec:
+                scenes = []
+                current = 0.0
+                while current < duration:
+                    sub_end = min(current + max_scene_length_sec, duration)
+                    if sub_end - current >= min_scene_length_sec:
+                        scenes.append({
+                            "scene_index": len(scenes),
+                            "start_sec": round(current, 3),
+                            "end_sec": round(sub_end, 3),
+                            "duration_sec": round(sub_end - current, 3),
+                        })
+                    current = sub_end
+            logger.info("  Found %d scenes (whole video, no cuts)", len(scenes))
+            return scenes
+
     scenes = []
     for i, (start, end) in enumerate(scene_list):
         start_sec = start.get_seconds()

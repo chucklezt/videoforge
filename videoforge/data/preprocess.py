@@ -47,7 +47,12 @@ def preprocess_video(
     }
 
     # Get source info
-    info = get_video_info(input_path)
+    try:
+        info = get_video_info(input_path)
+    except Exception as e:
+        logger.error("Skipping %s: cannot read video (%s)", input_path.name, e)
+        return None
+
     logger.info(
         "Processing: %s (%.1fs, %dx%d, %.1ffps)",
         input_path.name, info["duration"],
@@ -58,8 +63,12 @@ def preprocess_video(
     if output_path.exists():
         logger.info("  Normalized file exists, skipping: %s", output_path.name)
     else:
-        normalize_video(input_path, output_path, fps=fps, crf=crf)
-        logger.info("  Normalized: %s", output_path.name)
+        try:
+            normalize_video(input_path, output_path, fps=fps, crf=crf)
+            logger.info("  Normalized: %s", output_path.name)
+        except Exception as e:
+            logger.error("  Failed to normalize %s: %s", input_path.name, e)
+            return None
 
     # Extract subtitles
     if extract_subs and subtitles_dir and info.get("subtitle_count", 0) > 0:
@@ -108,7 +117,8 @@ def run_preprocessing(
             subtitles_dir=subtitles_dir,
             fps=fps, crf=crf,
         )
-        results.append(result)
+        if result is not None:
+            results.append(result)
 
     logger.info("Preprocessing complete: %d videos processed", len(results))
     return results
