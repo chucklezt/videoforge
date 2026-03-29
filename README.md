@@ -21,7 +21,7 @@ Train LoRA adapters on video clips from existing content, then generate new shor
 [1. Data Pipeline]      -- Extract clips, scenes, filter, normalize    ✅ Implemented
         |
         v
-[2. Captioning Pipeline] -- Auto-caption each clip with Qwen2-VL      🔲 Planned
+[2. Captioning Pipeline] -- Auto-caption each clip with Qwen2-VL      ✅ Implemented
         |
         v
 [3. Training Pipeline]   -- LoRA fine-tune Wan 2.1 1.3B               🔲 Planned
@@ -45,6 +45,15 @@ Five-stage pipeline that transforms raw video files into a structured training d
 4. **Filtering** -- Remove black/white frames, static clips, chaotic motion
 5. **Conditioning** -- Resize to target resolution (848x480), normalize fps, trim frame count
 
+### Stage 2: Captioning Pipeline (Complete)
+
+Auto-generates detailed text captions for each training clip using a vision-language model:
+
+1. **Visual Captioning** -- Qwen2-VL-7B-Instruct (4-bit quantized, ~6-8GB VRAM) describes each clip
+2. **Enrichment** -- Merges style tags and subtitle dialogue into the visual caption
+3. **Review** -- Interactive terminal tool to accept, edit, skip, or delete captions
+4. **Export** -- Writes `.txt` sidecar files alongside clips for training tools (kohya-ss, OneTrainer)
+
 ### CLI
 
 ```bash
@@ -61,6 +70,13 @@ python3 -m videoforge data scenes -i ./dataset/normalized -o scenes.json
 python3 -m videoforge data extract --scenes scenes.json -o ./dataset/clips
 python3 -m videoforge data filter -i ./dataset/clips
 python3 -m videoforge data condition -i ./dataset/clips -o ./dataset/clips_conditioned
+
+# Captioning pipeline
+python3 -m videoforge caption --dataset ./dataset                    # Caption all clips
+python3 -m videoforge caption --dataset ./dataset --recaption        # Re-caption everything
+python3 -m videoforge caption --clips clip_id_1 clip_id_2           # Caption specific clips
+python3 -m videoforge caption review --dataset ./dataset             # Interactive review
+python3 -m videoforge caption export --dataset ./dataset             # Export .txt sidecar files
 ```
 
 ### Output Structure
@@ -95,7 +111,11 @@ videoforge/
 │   │   ├── clip_extract.py
 │   │   ├── clip_filter.py
 │   │   └── clip_condition.py
-│   ├── caption/                # Captioning pipeline (planned)
+│   ├── caption/                # Captioning pipeline (implemented)
+│   │   ├── captioner.py        # Qwen2-VL video captioning
+│   │   ├── enrichment.py       # Style tags + dialogue merging
+│   │   ├── review.py           # Interactive caption review
+│   │   └── export.py           # .txt sidecar export
 │   ├── train/                  # Training pipeline (planned)
 │   ├── generate/               # Inference pipeline (planned)
 │   ├── postprocess/            # Post-processing (planned)
