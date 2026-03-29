@@ -2,11 +2,11 @@
 model:
   name: "Wan-AI/Wan2.1-T2V-1.3B-Diffusers"
   type: text_to_video
-  dtype: float16
+  dtype: bfloat16
 
 lora:
-  rank: 32
-  alpha: 32
+  rank: 16
+  alpha: 16
   target_modules:
     - "to_q"
     - "to_k"
@@ -23,20 +23,19 @@ training:
   learning_rate: 1.0e-4
   lr_scheduler: cosine
   lr_warmup_steps: 100
-  max_train_steps: 3000
-  mixed_precision: fp16
+  max_train_steps: 1500
+  mixed_precision: bf16
   seed: 42
   cache_latents_to_disk: true
   cache_text_encoder_outputs: true
   cpu_offload_text_encoder: true
 
 optimizer:
-  name: adamw8bit
+  name: adamw
   weight_decay: 0.01
-  betas: [0.9, 0.999]
 
 dataset:
-  path: "./dataset/clips"
+  path: "./dataset/clips_conditioned"
   caption_extension: ".txt"
   video_extension: ".mp4"
   resolution: [848, 480]
@@ -54,8 +53,8 @@ sampling:
   enabled: true
   every_n_steps: 500
   prompts:
-    - "seinfeld sitcom scene, multicam sitcom lighting, 1990s television, george costanza. A man in a puffy shirt sits at a diner booth, gesturing while talking."
-    - "seinfeld sitcom scene, multicam sitcom lighting, 1990s television. Two people stand in a kitchen, having an animated conversation."
+    - "seinfeld sitcom scene, multicam sitcom lighting, 1990s television, george costanza. George Costanza sits in a diner booth at Monk's Cafe, gesturing animatedly while speaking to someone across the table. Static camera, medium shot, warm interior lighting."
+    - "seinfeld sitcom scene, multicam sitcom lighting, 1990s television, george costanza. George Costanza leans forward in a diner booth, making an exasperated expression. Monk's Cafe interior, daytime, static camera."
   num_frames: 49
   width: 848
   height: 480

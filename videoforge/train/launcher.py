@@ -1,6 +1,7 @@
 """Launch and monitor training jobs."""
 
 import logging
+import os
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -32,13 +33,32 @@ def launch_training(
     Returns:
         Process return code (0 = success).
     """
-    # TODO: Call config_builder.build_training_command()
-    # TODO: Set ROCm environment variables (HSA_OVERRIDE_GFX_VERSION, etc.)
-    # TODO: Log the full command
-    # TODO: If dry_run, print and return 0
-    # TODO: Execute via subprocess.run()
-    # TODO: Handle KeyboardInterrupt for graceful stop
-    raise NotImplementedError("training launcher not yet implemented")
+    from videoforge.train.config_builder import build_training_command
+
+    cmd = build_training_command(
+        config,
+        dataset_dir=dataset_dir,
+        output_dir=output_dir,
+        resume_from=resume_from,
+        framework=framework,
+    )
+
+    env = os.environ.copy()
+    env["HSA_OVERRIDE_GFX_VERSION"] = "10.3.0"
+    env["PYTORCH_HIP_ALLOC_CONF"] = "expandable_segments:True"
+
+    logger.info("Training command: %s", " ".join(cmd))
+
+    if dry_run:
+        logger.info("[dry run] Would execute the above command")
+        return 0
+
+    try:
+        result = subprocess.run(cmd, env=env)
+        return result.returncode
+    except KeyboardInterrupt:
+        logger.info("Training interrupted")
+        return 1
 
 
 def validate_training_prereqs(
@@ -94,8 +114,43 @@ def validate_training_prereqs(
                 "Run: python -m videoforge caption export --dataset <path>"
             )
 
-    # TODO: Check model weights are downloaded
-    # TODO: Check VRAM availability
-    # TODO: Check training framework is installed (kohya-ss or OneTrainer)
+    # Check model weights are downloaded
+    model_name = config.get("model", {}).get("name", "")
+    if model_name:
+        model_path = Path(model_name)
+        if model_path.exists() or model_name.startswith("/") or model_name.startswith("./"):
+            if not model_path.exists():
+                errors.append(f"Model path not found: {model_name}")
+        else:
+            from huggingface_hub import try_to_load_from_cache
+            cached = try_to_load_from_cache(model_name, "model_index.json")
+            if cached is None or (isinstance(cached, str) and not Path(cached).exists()):
+                errors.append(
+                    f"Model '{model_name}' not found in HuggingFace cache. "
+                    f"Run: huggingface-cli download {model_name}"
+                )
+
+    # Check VRAM availability
+    try:
+        import torch
+        if torch.cuda.is_available():
+            props = torch.cuda.get_device_properties(0)
+            vram_gb = props.total_mem / (1024 ** 3)
+            if vram_gb < 12:
+                errors.append(
+                    f"Insufficient VRAM: {vram_gb:.1f}GB available, 12GB minimum required"
+                )
+        else:
+            errors.append("No CUDA/ROCm GPU detected")
+    except ImportError:
+        errors.append("PyTorch not installed")
+
+    # Check training framework is installed
+    try:
+        import accelerate  # noqa: F401
+    except ImportError:
+        errors.append(
+            "accelerate not installed. Run: pip install accelerate"
+        )
 
     return errors
