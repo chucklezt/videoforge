@@ -1,6 +1,6 @@
 # VideoForge Training Configuration - Wan 2.1 1.3B LoRA
 model:
-  name: "Wan-AI/Wan2.1-T2V-1.3B-Diffusers"
+  name: "/home/chuck/videoforge/models/wan21-1.3b"
   type: text_to_video
   dtype: bfloat16
 

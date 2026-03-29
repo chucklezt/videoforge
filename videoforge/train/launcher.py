@@ -122,20 +122,27 @@ def validate_training_prereqs(
             if not model_path.exists():
                 errors.append(f"Model path not found: {model_name}")
         else:
-            from huggingface_hub import try_to_load_from_cache
-            cached = try_to_load_from_cache(model_name, "model_index.json")
-            if cached is None or (isinstance(cached, str) and not Path(cached).exists()):
-                errors.append(
-                    f"Model '{model_name}' not found in HuggingFace cache. "
-                    f"Run: huggingface-cli download {model_name}"
-                )
+            local_model_dirs = [
+                Path.home() / "videoforge/models/wan21-1.3b",
+                Path(model_name),
+            ]
+            if any(p.exists() for p in local_model_dirs):
+                pass  # local model found, skip cache check
+            else:
+                from huggingface_hub import try_to_load_from_cache
+                cached = try_to_load_from_cache(model_name, "model_index.json")
+                if cached is None or (isinstance(cached, str) and not Path(cached).exists()):
+                    errors.append(
+                        f"Model '{model_name}' not found in HuggingFace cache. "
+                        f"Run: huggingface-cli download {model_name}"
+                    )
 
     # Check VRAM availability
     try:
         import torch
         if torch.cuda.is_available():
             props = torch.cuda.get_device_properties(0)
-            vram_gb = props.total_mem / (1024 ** 3)
+            vram_gb = props.total_memory / (1024 ** 3)
             if vram_gb < 12:
                 errors.append(
                     f"Insufficient VRAM: {vram_gb:.1f}GB available, 12GB minimum required"

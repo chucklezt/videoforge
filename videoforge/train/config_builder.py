@@ -144,7 +144,7 @@ def build_training_command(
         "--max_train_steps", str(_get(videoforge_config, "training.max_train_steps", 1500)),
         "--gradient_accumulation_steps", str(_get(videoforge_config, "training.gradient_accumulation", 4)),
         "--seed", str(_get(videoforge_config, "training.seed", 42)),
-        "--optimizer_type", str(_get(videoforge_config, "optimizer.name", "adamw")),
+        "--optimizer", str(_get(videoforge_config, "optimizer.name", "adamw")),
         "--caption_column", "text",
         "--video_column", "video",
         "--sdpa",

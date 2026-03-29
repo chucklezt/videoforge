@@ -23,12 +23,12 @@ def cmd_train(args):
     """Run LoRA training."""
     config = load_config(args.config) if args.config else {}
 
-    dataset_dir = Path(args.dataset or get_nested(config, "dataset.path", "./dataset/clips"))
+    dataset_dir = Path(args.dataset or get_nested(config, "dataset.path", "./dataset"))
     output_dir = Path(args.output or get_nested(config, "saving.output_dir", "./output/wan21_lora"))
 
     # Validate prerequisites
     from videoforge.train.launcher import validate_training_prereqs
-    errors = validate_training_prereqs(config, dataset_dir.parent)
+    errors = validate_training_prereqs(config, dataset_dir)
     if errors:
         for err in errors:
             logger.error(err)
