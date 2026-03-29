@@ -54,32 +54,96 @@ Auto-generates detailed text captions for each training clip using a vision-lang
 3. **Review** -- Interactive terminal tool to accept, edit, skip, or delete captions
 4. **Export** -- Writes `.txt` sidecar files alongside clips for training tools
 
+**Known issue:** captioner requires `fps_sample: 1.0` in `configs/caption.yaml` (not 4.0) and `qwen-vl-utils==0.0.8`. Higher fps values produce tensor shapes that hit unsupported RDNA2 kernels.
+
 ### Stage 3: Training Pipeline (Running)
 
-Training uses [finetrainers](https://github.com/a-r-r-o-w/finetrainers) 0.2.0.dev0, not the VideoForge-native training scaffold. Training runs via `accelerate launch` from `~/finetrainers/train.py`.
+Training uses [finetrainers](https://github.com/a-r-r-o-w/finetrainers) 0.2.0.dev0 (GitHub HEAD), not the VideoForge-native training scaffold. The finetrainers repo is cloned at `~/finetrainers/`. Training runs via `accelerate launch` from that directory.
 
 - **Dataset:** 35 captioned clips in `dataset/clips_conditioned/` with matching `.txt` sidecar files
-- **Model:** Wan2.1-T2V-1.3B (local at `models/wan21-1.3b`)
-- **LoRA rank:** 8
+- **Dataset config:** `~/videoforge/finetrainers_training.json`
+- **Model:** Wan2.1-T2V-1.3B (local at `~/videoforge/models/wan21-1.3b`)
+- **LoRA rank:** 8, lora_alpha 8
+- **Target modules:** `blocks.*(to_q|to_k|to_v|to_out.0)`
+- **Resolution bucket:** `[21, 480, 832]` (21 frames, 480x832)
 - **Steps:** 1500 (checkpoints at 500/1000/1500)
-- **Output:** `output/wan21_lora/`
-- **Active in:** tmux session `train`
+- **Output:** `~/videoforge/output/wan21_lora/`
+- **Active in:** tmux session `train` on chuckai
+
+#### Training Launch Command
+
+Run from `~/finetrainers/` after the session setup below:
+
+```bash
+cd ~/finetrainers
+accelerate launch --mixed_precision bf16 --num_processes 1 train.py \
+  --parallel_backend accelerate \
+  --pp_degree 1 --dp_degree 1 --dp_shards 1 --cp_degree 1 --tp_degree 1 \
+  --model_name "wan" \
+  --pretrained_model_name_or_path "/home/chuck/videoforge/models/wan21-1.3b" \
+  --dataset_config "/home/chuck/videoforge/finetrainers_training.json" \
+  --dataset_shuffle_buffer_size 10 \
+  --dataloader_num_workers 0 \
+  --training_type "lora" \
+  --seed 42 \
+  --batch_size 1 \
+  --train_steps 1500 \
+  --rank 8 \
+  --lora_alpha 8 \
+  --target_modules "blocks.*(to_q|to_k|to_v|to_out.0)" \
+  --gradient_accumulation_steps 4 \
+  --gradient_checkpointing \
+  --checkpointing_steps 500 \
+  --checkpointing_limit 2 \
+  --enable_slicing \
+  --enable_tiling \
+  --enable_precomputation \
+  --precomputation_items 35 \
+  --precomputation_once \
+  --optimizer "adamw" \
+  --lr 1e-4 \
+  --lr_scheduler "constant_with_warmup" \
+  --lr_warmup_steps 100 \
+  --beta1 0.9 \
+  --beta2 0.99 \
+  --weight_decay 1e-4 \
+  --epsilon 1e-8 \
+  --max_grad_norm 1.0 \
+  --flow_weighting_scheme "logit_normal" \
+  --output_dir "/home/chuck/videoforge/output/wan21_lora" \
+  --tracker_name "finetrainers-wan" \
+  --report_to "none"
+```
+
+`--enable_precomputation --precomputation_items 35 --precomputation_once` is required on 16GB VRAM. Without it, VAE + text encoder + transformer all load simultaneously and OOM. Precomputation encodes all clips first (~1 hour), caches to disk, unloads, then trains the transformer alone.
 
 ### Stage 4: Inference Pipeline (Not Yet Built)
 
 Script-to-video generation using the trained LoRA adapter.
 
+---
+
 ### Session Setup (Required Every Session)
 
-Every terminal session requires these commands before training or inference:
+Every terminal session requires these commands before training or captioning:
 
 ```bash
+source ~/videoforge-env/bin/activate
+export HSA_OVERRIDE_GFX_VERSION=10.3.0
+export PYTORCH_HIP_ALLOC_CONF=expandable_segments:True
 pip uninstall torchao -y
 pip install datasets==3.3.2
 pip uninstall torchcodec -y
-export HSA_OVERRIDE_GFX_VERSION=10.3.0
-export PYTORCH_HIP_ALLOC_CONF=expandable_segments:True
 ```
+
+**Why each step is needed:**
+- `torchao 0.16.0` requires `torch.int1` which doesn't exist in PyTorch ROCm 2.5.1 — breaks diffusers import
+- `datasets 4.8.4` hard-requires `torchcodec` for the Video feature type; pinning to 3.3.2 uses `decord` instead
+- `torchcodec` is CUDA-only (requires `libnvrtc.so.13`); no ROCm support exists
+
+finetrainers re-installs `torchao` and upgrades `datasets` every time it's installed from GitHub, so these uninstalls must run every session.
+
+---
 
 ### CLI
 
@@ -115,6 +179,8 @@ dataset/
 ├── normalized/          # Format-normalized source videos
 ├── clips/               # Extracted training clips
 ├── clips_conditioned/   # Resized/normalized clips + .txt sidecar captions
+│   ├── video            # Line-separated absolute paths to .mp4 files (for finetrainers)
+│   └── text             # Line-separated captions in same order as video file
 ├── clip_metadata/       # Per-clip JSON metadata
 └── subtitles/           # Extracted subtitle tracks
 ```
@@ -125,10 +191,11 @@ dataset/
 videoforge/
 ├── configs/                    # YAML configuration files
 │   ├── data_pipeline.yaml
-│   ├── caption.yaml
+│   ├── caption.yaml            # fps_sample must be 1.0 for ROCm compatibility
 │   ├── train_wan21_lora.yaml
 │   ├── inference.yaml
 │   └── style_tags.yaml
+├── finetrainers_training.json  # Dataset config for finetrainers
 ├── specs/                      # Project specifications
 ├── videoforge/                 # Python package
 │   ├── __main__.py             # CLI entry point
@@ -143,7 +210,7 @@ videoforge/
 │   │   ├── enrichment.py       # Style tags + dialogue merging
 │   │   ├── review.py           # Interactive caption review
 │   │   └── export.py           # .txt sidecar export
-│   ├── train/                  # Training pipeline (scaffold, training uses finetrainers)
+│   ├── train/                  # Training pipeline (scaffold only; training uses finetrainers)
 │   ├── generate/               # Inference pipeline (not yet built)
 │   ├── postprocess/            # Post-processing (not yet built)
 │   └── utils/                  # Shared utilities
@@ -169,23 +236,29 @@ source ~/videoforge-env/bin/activate
 pip install -r requirements-rocm.txt
 pip install -r requirements.txt
 pip install -e .
+
+# Clone finetrainers (required for training)
+git clone https://github.com/a-r-r-o-w/finetrainers.git ~/finetrainers
+
 python3 -m videoforge validate
 ```
 
 ## Key Constraints
 
-- 16GB VRAM ceiling -- quantization, gradient checkpointing, CPU offloading
+- 16GB VRAM ceiling -- precomputation staging required for Wan2.1 training; quantization, gradient checkpointing, CPU offloading elsewhere
 - AMD ROCm (RDNA2/gfx1030) -- no xformers, no CUDA kernels, SDPA only
 - `HSA_OVERRIDE_GFX_VERSION=10.3.0` required everywhere
+- `qwen-vl-utils==0.0.8` required for captioning (0.0.14 breaks video inference on ROCm)
+- `torchao`, `torchcodec`, `datasets>=4` must be uninstalled/pinned every session (finetrainers dependency conflicts)
 - Open source only -- all models and tools permissively licensed
 
 ## Technology Stack
 
 | Component | Tool |
 |-----------|------|
-| GPU Compute | ROCm 6.3+ / PyTorch ROCm |
+| GPU Compute | ROCm 6.3+ / PyTorch ROCm 2.5.1 |
 | Base Video Model | Wan 2.1 1.3B (text-to-video) |
-| Fine-tuning | LoRA via finetrainers 0.2.0.dev0 |
+| Fine-tuning | LoRA via finetrainers 0.2.0.dev0 (GitHub HEAD) |
 | Video Captioning | Qwen2.5-VL-7B-Instruct |
 | Scene Detection | PySceneDetect |
 | Video Processing | FFmpeg |
