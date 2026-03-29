@@ -1,0 +1,8 @@
+# ROCm-specific PyTorch install
+# Run INSTEAD of the torch lines in requirements.txt:
+#   pip install -r requirements-rocm.txt
+#   pip install -r requirements.txt
+--index-url https://download.pytorch.org/whl/rocm6.2
+torch>=2.4.0
+torchvision>=0.19.0
+torchaudio>=2.4.0

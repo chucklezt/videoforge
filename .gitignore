@@ -1,0 +1,27 @@
+# Models and data (large files)
+models/
+dataset/
+output/
+generated/
+frameworks/
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+build/
+
+# Cache
+latent_cache/
+te_cache/
+
+# Environment
+.env
+*-env/
+
+# System
+.DS_Store
+*.swp
+*.swo
+*~
