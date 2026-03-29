@@ -50,7 +50,7 @@ class VideoCaptioner:
         from transformers import Qwen2VLForConditionalGeneration, AutoProcessor
 
         load_kwargs = {
-            "device_map": "auto",
+            "device_map": {"": "cuda:0"},
             "torch_dtype": self.dtype,
         }
 
@@ -98,7 +98,7 @@ class VideoCaptioner:
                 "content": [
                     {
                         "type": "video",
-                        "video": clip_path,
+                        "video": f"file://{Path(clip_path).resolve()}",
                         "max_pixels": 360 * 420,
                         "fps": self.fps_sample,
                     },
@@ -122,14 +122,19 @@ class VideoCaptioner:
             return_tensors="pt",
         ).to(self.model.device)
 
+        input_len = inputs.input_ids.shape[1]
+
         with torch.no_grad():
             output_ids = self.model.generate(
                 **inputs,
                 max_new_tokens=self.max_new_tokens,
             )
 
+        del inputs
+        torch.cuda.empty_cache()
+
         output_text = self.processor.batch_decode(
-            output_ids[:, inputs.input_ids.shape[1]:],
+            output_ids[:, input_len:],
             skip_special_tokens=True,
         )[0]
 

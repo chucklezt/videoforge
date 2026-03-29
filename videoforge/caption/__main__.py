@@ -6,6 +6,8 @@ import logging
 import sys
 from pathlib import Path
 
+import torch
+
 from videoforge.utils.config import load_config, get_nested
 from videoforge.caption.captioner import DEFAULT_PROMPT
 
@@ -105,6 +107,8 @@ def cmd_caption(args):
         except Exception as e:
             logger.error("  Failed: %s", e)
             continue
+
+        torch.cuda.empty_cache()
 
         # Find dialogue from subtitles
         source_stem = clip_id.rsplit("_scene", 1)[0]
