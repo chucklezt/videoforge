@@ -2,5 +2,7 @@
 # They act as trigger words that activate the learned visual style.
 # Must be used consistently at both training (captioning) and inference time.
 style_tags:
-  - "cinematic television scene"
-  - "dramatic lighting"
+  - "seinfeld sitcom scene"
+  - "multicam sitcom lighting"
+  - "1990s television"
+  - "george costanza"

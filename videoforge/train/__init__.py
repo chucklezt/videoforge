@@ -1,1 +1,1 @@
-"""Training pipeline: LoRA fine-tuning."""
+"""Training pipeline: LoRA fine-tuning for video generation."""

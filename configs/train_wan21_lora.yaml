@@ -1,0 +1,63 @@
+# VideoForge Training Configuration - Wan 2.1 1.3B LoRA
+model:
+  name: "Wan-AI/Wan2.1-T2V-1.3B-Diffusers"
+  type: text_to_video
+  dtype: float16
+
+lora:
+  rank: 32
+  alpha: 32
+  target_modules:
+    - "to_q"
+    - "to_k"
+    - "to_v"
+    - "to_out.0"
+    - "ff.net.0.proj"
+    - "ff.net.2"
+  dropout: 0.05
+
+training:
+  batch_size: 1
+  gradient_accumulation: 4
+  gradient_checkpointing: true
+  learning_rate: 1.0e-4
+  lr_scheduler: cosine
+  lr_warmup_steps: 100
+  max_train_steps: 3000
+  mixed_precision: fp16
+  seed: 42
+  cache_latents_to_disk: true
+  cache_text_encoder_outputs: true
+  cpu_offload_text_encoder: true
+
+optimizer:
+  name: adamw8bit
+  weight_decay: 0.01
+  betas: [0.9, 0.999]
+
+dataset:
+  path: "./dataset/clips"
+  caption_extension: ".txt"
+  video_extension: ".mp4"
+  resolution: [848, 480]
+  frame_count: 49
+  fps: 24
+  caption_dropout_rate: 0.1
+
+saving:
+  output_dir: "./output/wan21_lora"
+  save_every_n_steps: 500
+  keep_last_n_checkpoints: 3
+  save_format: safetensors
+
+sampling:
+  enabled: true
+  every_n_steps: 500
+  prompts:
+    - "seinfeld sitcom scene, multicam sitcom lighting, 1990s television, george costanza. A man in a puffy shirt sits at a diner booth, gesturing while talking."
+    - "seinfeld sitcom scene, multicam sitcom lighting, 1990s television. Two people stand in a kitchen, having an animated conversation."
+  num_frames: 49
+  width: 848
+  height: 480
+  guidance_scale: 7.5
+  num_inference_steps: 30

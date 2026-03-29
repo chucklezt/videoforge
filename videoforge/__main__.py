@@ -30,8 +30,9 @@ def cmd_caption(args, remaining):
 
 def cmd_train(args, remaining):
     """Dispatch to training pipeline."""
-    print("Training pipeline not yet implemented.")
-    sys.exit(1)
+    from videoforge.train.__main__ import main as train_main
+    sys.argv = ["videoforge.train"] + remaining
+    train_main()
 
 
 def cmd_generate(args, remaining):

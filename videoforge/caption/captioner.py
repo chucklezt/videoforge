@@ -9,14 +9,13 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_PROMPT = """Describe this video clip in detail for training a video generation model. Include:
 
-1. SCENE: Setting, location, time of day, lighting conditions
-2. SUBJECTS: People present, their appearance, clothing, positioning
-3. ACTION: What is happening, movements, gestures, expressions
-4. CAMERA: Camera angle, movement (static, pan, zoom, tracking)
-5. STYLE: Color palette, mood, visual style (cinematic, bright, dark, etc.)
+SCENE: Setting, location, time of day, lighting conditions. Be specific -- if this is a diner, describe the booth, counter, décor. If an apartment, describe the furniture and layout.
+SUBJECTS: Identify any recognizable characters by name if possible. Describe their appearance, clothing, body type, positioning. George Costanza is a short, stocky, bald man who appears frequently.
+ACTION: What is happening, movements, gestures, expressions, body language.
+CAMERA: Camera angle, movement (static, pan, zoom, tracking shot).
+STYLE: Color palette, mood, visual style, lighting quality.
 
-Write a single flowing paragraph, not a bulleted list. Be specific and visual.
-Do not describe audio or make assumptions about what cannot be seen."""
+Write a single flowing paragraph, not a bulleted list. Be specific and visual. Refer to characters by name when recognizable. Do not describe audio or make assumptions about what cannot be seen."""
 
 
 class VideoCaptioner:
@@ -25,8 +24,8 @@ class VideoCaptioner:
     def __init__(
         self,
         model_name: str = "Qwen/Qwen2.5-VL-7B-Instruct",
-        quantization: str = "4bit",
-        dtype: torch.dtype = torch.float16,
+        quantization: str = "none",
+        dtype: torch.dtype = torch.bfloat16,
         max_new_tokens: int = 300,
         prompt: str = DEFAULT_PROMPT,
         fps_sample: float = 4.0,
@@ -47,7 +46,7 @@ class VideoCaptioner:
 
         logger.info("Loading captioning model: %s (%s)", self.model_name, self.quantization)
 
-        from transformers import Qwen2VLForConditionalGeneration, AutoProcessor
+        from transformers import Qwen2_5_VLForConditionalGeneration, AutoProcessor
 
         load_kwargs = {
             "device_map": {"": "cuda:0"},
@@ -67,7 +66,7 @@ class VideoCaptioner:
                 load_in_8bit=True,
             )
 
-        self.model = Qwen2VLForConditionalGeneration.from_pretrained(
+        self.model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
             self.model_name, **load_kwargs
         )
         self.processor = AutoProcessor.from_pretrained(self.model_name)
@@ -99,7 +98,8 @@ class VideoCaptioner:
                     {
                         "type": "video",
                         "video": f"file://{Path(clip_path).resolve()}",
-                        "max_pixels": 360 * 420,
+                        "min_pixels": 64 * 64,
+                        "max_pixels": 224 * 224,
                         "fps": self.fps_sample,
                     },
                     {
