@@ -137,7 +137,7 @@ def build_training_command(
 
     cmd.extend([
         "--pretrained_model_name_or_path", str(_get(videoforge_config, "model.name", "Wan-AI/Wan2.1-T2V-1.3B-Diffusers")),
-        "--instance_data_dir", str(dataset_dir),
+        "--instance_data_dir", str(Path(dataset_dir).resolve() / "clips_conditioned"),
         "--output_dir", str(output_dir),
         "--rank", str(_get(videoforge_config, "lora.rank", 16)),
         "--learning_rate", str(_get(videoforge_config, "training.learning_rate", 1e-4)),
