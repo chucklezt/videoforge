@@ -28,7 +28,7 @@ class VideoCaptioner:
         dtype: torch.dtype = torch.bfloat16,
         max_new_tokens: int = 300,
         prompt: str = DEFAULT_PROMPT,
-        fps_sample: float = 4.0,
+        fps_sample: float = 1.0,
     ):
         self.model_name = model_name
         self.quantization = quantization
@@ -114,6 +114,8 @@ class VideoCaptioner:
             messages, tokenize=False, add_generation_prompt=True
         )
         image_inputs, video_inputs = process_vision_info(messages)
+        if video_inputs is not None:
+            video_inputs = [v.to(dtype=self.dtype) for v in video_inputs]
         inputs = self.processor(
             text=[text],
             images=image_inputs,

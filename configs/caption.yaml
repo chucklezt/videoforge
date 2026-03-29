@@ -3,7 +3,8 @@ captioning:
   model: "Qwen/Qwen2.5-VL-7B-Instruct"
   quantization: none
   max_new_tokens: 512
-  fps_sample: 4.0
+  # 1.0fps required on RDNA2/ROCm -- higher fps combined with reduced max_pixels produces tensor shapes that trigger unsupported kernel paths in the vision encoder
+  fps_sample: 1.0
 
 style_tags_path: "configs/style_tags.yaml"
 dataset_dir: "./dataset"
