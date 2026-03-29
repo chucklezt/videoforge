@@ -24,7 +24,7 @@ class VideoCaptioner:
 
     def __init__(
         self,
-        model_name: str = "Qwen/Qwen2-VL-7B-Instruct",
+        model_name: str = "Qwen/Qwen2.5-VL-7B-Instruct",
         quantization: str = "4bit",
         dtype: torch.dtype = torch.float16,
         max_new_tokens: int = 300,

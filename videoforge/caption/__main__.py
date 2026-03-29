@@ -81,7 +81,7 @@ def cmd_caption(args):
     # Load model
     from videoforge.caption.captioner import VideoCaptioner
     captioner = VideoCaptioner(
-        model_name=cap_cfg.get("model", "Qwen/Qwen2-VL-7B-Instruct"),
+        model_name=cap_cfg.get("model", "Qwen/Qwen2.5-VL-7B-Instruct"),
         quantization=cap_cfg.get("quantization", "4bit"),
         max_new_tokens=cap_cfg.get("max_new_tokens", 300),
         prompt=cap_cfg.get("prompt", None) or DEFAULT_PROMPT,

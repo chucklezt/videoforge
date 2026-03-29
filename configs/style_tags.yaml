@@ -1,0 +1,6 @@
+# Style tags are prepended to every caption during training and generation.
+# They act as trigger words that activate the learned visual style.
+# Must be used consistently at both training (captioning) and inference time.
+style_tags:
+  - "cinematic television scene"
+  - "dramatic lighting"

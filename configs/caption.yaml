@@ -1,0 +1,9 @@
+# VideoForge Captioning Configuration
+captioning:
+  model: "Qwen/Qwen2.5-VL-7B-Instruct"
+  quantization: 4bit
+  max_new_tokens: 300
+  fps_sample: 4.0
+
+style_tags_path: "configs/style_tags.yaml"
+dataset_dir: "./dataset"

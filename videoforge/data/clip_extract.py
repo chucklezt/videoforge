@@ -2,6 +2,7 @@
 
 import json
 import logging
+from datetime import datetime
 from pathlib import Path
 
 from videoforge.utils.video import extract_clip
@@ -118,6 +119,8 @@ def extract_clips_from_scenes(
 
                 # Build metadata
                 meta = {
+                    "schema_version": 1,
+                    "created_at": datetime.utcnow().isoformat(),
                     "clip_id": clip_id,
                     "source_file": str(source_path),
                     "scene_index": scene_idx,
