@@ -1,0 +1,13 @@
+{
+  "datasets": [
+    {
+      "data_root": "/home/chuck/videoforge/dataset/clips_conditioned",
+      "dataset_type": "video",
+      "video_resolution_buckets": [
+        [21, 480, 832]
+      ],
+      "reshape_mode": "bicubic",
+      "remove_common_llm_caption_prefixes": true
+    }
+  ]
+}
