@@ -23,8 +23,9 @@ def cmd_data(args, remaining):
 
 def cmd_caption(args, remaining):
     """Dispatch to captioning pipeline."""
-    print("Captioning pipeline not yet implemented.")
-    sys.exit(1)
+    from videoforge.caption.__main__ import main as caption_main
+    sys.argv = ["videoforge.caption"] + remaining
+    caption_main()
 
 
 def cmd_train(args, remaining):
