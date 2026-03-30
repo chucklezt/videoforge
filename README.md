@@ -65,7 +65,7 @@ Training uses [finetrainers](https://github.com/a-r-r-o-w/finetrainers) 0.2.0.de
 - **Model:** Wan2.1-T2V-1.3B (local at `~/videoforge/models/wan21-1.3b`)
 - **LoRA rank:** 8, lora_alpha 8
 - **Target modules:** `blocks.*(to_q|to_k|to_v|to_out.0)`
-- **Resolution bucket:** `[21, 480, 832]` (21 frames, 480x832)
+- **Resolution bucket:** `[49, 480, 848]` (49 frames, 480x848)
 - **Steps:** 1500 (checkpoints at 500/1000/1500)
 - **Output:** `~/videoforge/output/wan21_lora/`
 - **Active in:** tmux session `train` on chuckai
@@ -264,14 +264,25 @@ python3 -m videoforge validate
 | Video Processing | FFmpeg |
 | Inference | Diffusers (planned) |
 
-## Lessons Learned
+## Known Issues & Fixes
 
-First long debug marathon with several independent fires:
+**Captioning: HIP error on video inference**
+- Symptom: `HIP error: no kernel image is available for execution on the device` during captioning
+- Cause: `fps_sample: 4.0` generates too many frames, producing tensor shapes that hit unsupported RDNA2 kernels. Also, `qwen_vl_utils` returns `float32` video tensors; passing them to a `bfloat16` model triggers the kernel mismatch.
+- Fix: Set `fps_sample: 1.0` in `configs/caption.yaml`. Ensure `videoforge/caption/captioner.py` casts video inputs before inference: `video_inputs = [v.to(dtype=self.dtype) for v in video_inputs]`
 
-- Captioning broken (HIP error: no kernel image) — root cause was fps_sample: 4.0 in caption.yaml generating too many frames, hitting unsupported RDNA2 kernels. Fix: fps_sample: 1.0 + cast video tensors to bfloat16 before passing to the model. 26/35 clips captioned before the SSH timeout.
-- The training scaffold (VideoForge native) was a dead end — it was wired to a CogVideoX diffusers script that can't load Wan model architecture (patch_size: [1,2,2] is a list, not an int, breaks nn.Conv2d). You navigated around this correctly.
-- finetrainers 0.2.0 (PyPI) is broken — missing patches/dependencies subpackage. The GitHub HEAD (0.2.0.dev0) is what works, as we already knew from the README.
-- torchcodec is CUDA-only — finetrainers 0.2.0 pulls datasets 4.8.4 which requires torchcodec for its Video feature type. Fix confirmed: pip uninstall torchcodec -y + pip install datasets==3.3.2.
-- datasets 4.8.4 got re-installed when you installed finetrainers from GitHub. The session-setup uninstall sequence from the README is required every session, and it ran correctly before this training launch.
-- rank 8 → rank 16 — I see "trainable parameters": 5898240 in this run vs 11796480 earlier. We're running rank 8, not 16. That's actually fine for this dataset size — less VRAM pressure, still meaningful LoRA.
+**Training: OOM on first step without precomputation**
+- Symptom: `HIP out of memory` at step 0 even with gradient checkpointing
+- Cause: Without `--enable_precomputation`, VAE + text encoder + transformer all load simultaneously, exceeding 16GB
+- Fix: Always use `--enable_precomputation --precomputation_items 35 --precomputation_once` (documented in launch command above). Also ensure `PYTORCH_HIP_ALLOC_CONF=expandable_segments:True` is exported before launch.
+
+**Training: finetrainers breaks on install**
+- Symptom: `torch.int1` AttributeError or `ModuleNotFoundError: finetrainers.patches.dependencies`
+- Cause: PyPI `finetrainers==0.2.0` is broken. GitHub HEAD includes `patches/dependencies`. `torchao 0.16.0` requires `torch.int1` which doesn't exist in PyTorch ROCm 2.5.1.
+- Fix: Install from GitHub (`pip install git+https://github.com/a-r-r-o-w/finetrainers.git`), then `pip uninstall torchao -y`. Run full session setup every session.
+
+**datasets 4.8.4 / torchcodec conflict**
+- Symptom: `Could not load libtorchcodec` during training data loading
+- Cause: `finetrainers` upgrades `datasets` to 4.8.4 which requires `torchcodec` (CUDA-only, no ROCm support)
+- Fix: `pip install datasets==3.3.2 && pip uninstall torchcodec -y` — must run every session after finetrainers installs
 
