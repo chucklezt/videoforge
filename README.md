@@ -263,3 +263,15 @@ python3 -m videoforge validate
 | Scene Detection | PySceneDetect |
 | Video Processing | FFmpeg |
 | Inference | Diffusers (planned) |
+
+## Lessons Learned
+
+First long debug marathon with several independent fires:
+
+- Captioning broken (HIP error: no kernel image) — root cause was fps_sample: 4.0 in caption.yaml generating too many frames, hitting unsupported RDNA2 kernels. Fix: fps_sample: 1.0 + cast video tensors to bfloat16 before passing to the model. 26/35 clips captioned before the SSH timeout.
+- The training scaffold (VideoForge native) was a dead end — it was wired to a CogVideoX diffusers script that can't load Wan model architecture (patch_size: [1,2,2] is a list, not an int, breaks nn.Conv2d). You navigated around this correctly.
+- finetrainers 0.2.0 (PyPI) is broken — missing patches/dependencies subpackage. The GitHub HEAD (0.2.0.dev0) is what works, as we already knew from the README.
+- torchcodec is CUDA-only — finetrainers 0.2.0 pulls datasets 4.8.4 which requires torchcodec for its Video feature type. Fix confirmed: pip uninstall torchcodec -y + pip install datasets==3.3.2.
+- datasets 4.8.4 got re-installed when you installed finetrainers from GitHub. The session-setup uninstall sequence from the README is required every session, and it ran correctly before this training launch.
+- rank 8 → rank 16 — I see "trainable parameters": 5898240 in this run vs 11796480 earlier. We're running rank 8, not 16. That's actually fine for this dataset size — less VRAM pressure, still meaningful LoRA.
+
