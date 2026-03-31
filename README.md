@@ -68,22 +68,44 @@ Inference uses diffusers `WanPipeline` with the trained LoRA adapter. Scripts ar
 - `pipe.enable_attention_slicing("max")` — processes attention one head at a time
 - VAE loaded in float32 (required by Wan's VAE), pipeline in float16
 
-**Working configuration:** 480x480 resolution, 33 frames (~2 sec at 16fps), 30-50 inference steps.
+**Working configurations (step 1500 LoRA, all with sequential CPU offload + attention slicing):**
 
-**Inference experiments (all at 480x480, 33 frames, step 1500 LoRA):**
+| Resolution | Max Frames | Duration | s/step | VRAM util | Notes |
+|------------|-----------|----------|--------|-----------|-------|
+| 480x480 | 33 | 2.1s | ~11s | ~82% | Best per-frame quality |
+| 320x320 | 81 | 5.1s | ~12s | ~75% | Good balance |
+| 320x240 | 129 | 8.1s | ~19s | 93.3% | Max duration, 1.1GB headroom |
+| 320x240 | 150 | 9.4s | -- | OOM | Exceeds 16GB |
 
-| Experiment | Steps | CFG | Time | File size | Notes |
-|------------|-------|-----|------|-----------|-------|
-| 40 steps, cfg 7.5 | 40 | 7.5 | 9m 36s | 344 KB | Baseline at 480x480 |
-| 50 steps, cfg 8.0 | 50 | 8.0 | 9m 31s | 370 KB | More detail, similar time |
-| 40 steps, cfg 6.5 + Seinfeld prompt | 40 | 6.5 | 7m 41s | 371 KB | Richest detail via prompt |
+**Inference experiments (9 experiments run, step 1500 LoRA):**
+
+| Exp | Resolution | Frames | Duration | Steps | CFG | Time | Size |
+|-----|-----------|--------|----------|-------|-----|------|------|
+| 1 | 480x480 | 33 | 2.1s | 40 | 7.5 | 9m 36s | 344 KB |
+| 2 | 480x480 | 33 | 2.1s | 50 | 8.0 | 9m 31s | 370 KB |
+| 3 | 480x480 | 33 | 2.1s | 40 | 6.5 | 7m 41s | 371 KB |
+| 4 | 480x480 | 33 | 2.1s | 60 | 6.5 | 11m 20s | 251 KB |
+| 5 | 320x320 | 81 | 5.1s | 60 | 6.5 | 12m 44s | 401 KB |
+| 6 | 320x240 | 81 | 4.5s | 60 | 7.5 | 8m 19s | 458 KB |
+| 7 | 320x240 | 120 | 7.5s | 60 | 7.5 | 15m 38s | 1,016 KB |
+| 8 | 320x240 | 129 | 8.1s | 60 | 7.5 | 19m 53s | 1,304 KB |
+| 9 | 320x240 | 129 | 8.1s | 60 | 7.5 | 19m 57s | 1,171 KB |
+
+**VRAM profiling (experiments 7-9):**
+- VRAM monitoring added via background polling thread (2s interval)
+- Sequential CPU offload shows sawtooth pattern: 0 -> 13.9GB -> 0 as modules load/unload
+- At 120 frames (320x240): 82.3% utilization, 3GB headroom
+- At 129 frames (320x240): 93.3% utilization, 1.1GB headroom -- practical ceiling
+- At 150 frames (320x240): OOM (attention tries to allocate 5.8GB with 2GB free)
 
 **Inference findings:**
 - Step 1500 LoRA with improved prompts produces decent results; step 1000 shows less detail
 - Face quality is the main remaining challenge (common with 1.3B video models)
-- The Monk's Diner setting requires explicit prompt engineering ("classic New York coffee shop with vinyl booths and a counter") to avoid generic restaurant scenes
-- Adding "detailed face, sharp features, high quality" to positive prompts and "deformed, blurry, mangled face, distorted, ugly" to negative prompts significantly improved output
-- 320x320 runs at ~3.5s/step; 480x480 at ~11s/step (sequential CPU offload tradeoff)
+- Detailed physical descriptions ("short stocky bald man, horseshoe hair pattern, heavy lidded eyes") help with character likeness
+- The Monk's Diner setting requires explicit prompt engineering to avoid generic restaurant scenes
+- CFG 6.5-7.5 works best; higher CFG follows prompts more closely but can introduce artifacts
+- Longer negative prompts don't use more VRAM but can produce more visual variation
+- Duration vs quality is the key tradeoff: 480x480 for quality, 320x240 for length (up to 8.1s)
 
 **Generated test videos:** `output/inference/`
 
@@ -163,7 +185,7 @@ accelerate launch --mixed_precision bf16 --num_processes 1 train.py \
 HSA_OVERRIDE_GFX_VERSION=10.3.0 python scripts/inference_test.py
 ```
 
-See `scripts/inference_test.py` for the base script. `scripts/inference_experiments.py` runs parameter sweeps.
+See `scripts/inference_test.py` for the base script. Experiments 4-9 (`scripts/inference_exp[4-9].py`) iterate on prompt engineering, resolution/duration tradeoffs, and VRAM profiling.
 
 ### Session Setup (Required Every Session)
 
@@ -239,9 +261,15 @@ videoforge/
 │   └── style_tags.yaml
 ├── finetrainers_training.json  # Dataset config for finetrainers
 ├── scripts/                    # Inference scripts
-│   ├── inference_test.py       # Single-run inference
-│   ├── inference_comparison.py # LoRA checkpoint comparison
-│   └── inference_experiments.py # Parameter sweep experiments
+│   ├── inference_test.py       # Single-run inference (baseline)
+│   ├── inference_comparison.py # LoRA checkpoint comparison (step 1000 vs 1500)
+│   ├── inference_experiments.py # Parameter sweep (exp 1-3)
+│   ├── inference_exp4.py       # Detailed scene prompt, 480x480
+│   ├── inference_exp5.py       # Longer generation, 320x320, 81 frames
+│   ├── inference_exp6.py       # 320x240, 18fps, CFG 7.5
+│   ├── inference_exp7.py       # 120 frames + VRAM monitoring
+│   ├── inference_exp8.py       # 129 frames (max duration) + VRAM monitoring
+│   └── inference_exp9.py       # Simplified negative prompt + VRAM monitoring
 ├── specs/                      # Project specifications
 ├── videoforge/                 # Python package
 │   ├── __main__.py             # CLI entry point
