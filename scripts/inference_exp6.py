@@ -16,7 +16,7 @@ LORA_PATH = os.path.expanduser(
     "~/videoforge/output/wan21_lora/lora_weights/001500/pytorch_lora_weights.safetensors"
 )
 OUTPUT_PATH = os.path.expanduser(
-    "~/videoforge/output/inference/experiment5_george_long.mp4"
+    "~/videoforge/output/inference/experiment6_george_detailed.mp4"
 )
 
 PROMPT = (
@@ -48,9 +48,9 @@ NEGATIVE_PROMPT = (
 # 81 frames at 320x320 = ~34K attention tokens, similar to 33@480 which works
 NUM_FRAMES = 81
 WIDTH = 320
-HEIGHT = 320
-FPS = 16
-GUIDANCE_SCALE = 6.5
+HEIGHT = 240
+FPS = 18
+GUIDANCE_SCALE = 7.5
 NUM_STEPS = 60
 SEED = 42
 
