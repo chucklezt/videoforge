@@ -17,7 +17,7 @@ LORA_PATH = os.path.expanduser(
     "~/videoforge/output/wan21_lora/lora_weights/001500/pytorch_lora_weights.safetensors"
 )
 OUTPUT_PATH = os.path.expanduser(
-    "~/videoforge/output/inference/experiment8_george_150f.mp4"
+    "~/videoforge/output/inference/experiment8_george_129f.mp4"
 )
 
 PROMPT = (
@@ -45,7 +45,7 @@ NEGATIVE_PROMPT = (
     "outdoor setting, living room, office, bar, nightclub, apartment"
 )
 
-NUM_FRAMES = 150
+NUM_FRAMES = 129
 WIDTH = 320
 HEIGHT = 240
 FPS = 16
